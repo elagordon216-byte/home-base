@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#315e4b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Home Base">
+  <title>Home Base</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-head">
+      <h1>🏡 Home Base</h1>
+      <p>Quests for home, kids, writing, and practice. XP is never lost.</p>
+    </header>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
+    <div id="banner" style="padding:0 12px"></div>
+    <main id="view"></main>
+    <footer class="foot">No negative XP. The board serves you.</footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./js/ui.js"></script>
+</body>
+</html>
