@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { exportBackup, importBackup } from '../js/migrate.js';
+import { syncBadges } from '../js/badges.js';
+import { setProjectWords } from '../js/actions.js';
 import { totalXP, levelNumber } from '../js/xp.js';
 import { DEFAULT_LISTS } from '../js/v2-data.js';
 import { lunarPhaseData } from '../js/v2-data.js';
@@ -115,8 +117,9 @@ test('v2 backup imports losslessly and round-trips through schema 3', () => {
   assert.equal(totalXP(state), expectedTotal);
   assert.equal(levelNumber(totalXP(state)), levelNumber(expectedTotal));
   assert.deepEqual(state.goldInventory, beforeInventory);
-  assert.equal(state.gold, beforeGold + state.upgrade.goldAdded);
-  assert.ok(state.upgrade.goldAdded > 0);
+  assert.equal(state.gold, beforeGold);
+  assert.equal(state.goldLog.some(g => String(g.key || '').startsWith('badge:')), false);
+  assert.equal(state.upgrade.goldAdded, 0);
   assert.equal(state.kept.note, 'extra field stays');
   assert.equal(state.lists.home.find(t => t.id === 'h-dishes').label, 'Dishes, renamed');
   assert.equal(state.lists.home.find(t => t.id === 'h-dishes').xp, 1);
@@ -132,13 +135,15 @@ test('v2 backup imports losslessly and round-trips through schema 3', () => {
   assert.equal(state.goldLedger['2026-11-18']['basket:basket0'], 2);
   for (const room of Object.values(state.rooms)) assert.equal(room.level, 1);
 
-  assert.ok(state.badges['streak-3']);
-  assert.ok(state.badges['focus-1h']);
-  assert.ok(state.badges['moon:new']);
-  assert.ok(state.badges['badday-survivor']);
-  assert.equal(state.badges['streak-5'], undefined);
-  assert.equal(state.badges['words-1000'], undefined);
-  assert.equal(state.badges['focus-5h'], undefined);
+  assert.equal(state.badges['streak-3'], undefined);
+  assert.equal(state.badges['focus-1h'], undefined);
+  assert.equal(state.badges['moon:new'], undefined);
+  assert.equal(state.badges['badday-survivor'], undefined);
+  for (const id of ['streak-3', 'focus-1h', 'moon:new', 'badday-survivor']) {
+    assert.ok(state.badgesWaived.includes(id), id);
+  }
+  assert.equal(state.badgesWaived.includes('streak-5'), false);
+  assert.equal(state.badgesWaived.includes('words-1000'), false);
 
   const exported = exportBackup(state, '2026-11-19T15:00:00.000Z');
   assert.equal(exported.app, 'home-base');
@@ -146,6 +151,34 @@ test('v2 backup imports losslessly and round-trips through schema 3', () => {
   const again = importBackup(JSON.parse(JSON.stringify(exported)), { today: TODAY });
   assert.equal(again.mode, 'v3');
   assert.deepEqual(again.state, state);
+});
+
+test('a schema 3 badge round-trips, and new work after import can still earn a badge', () => {
+  const { state } = importBackup(v2Backup(), { today: TODAY });
+  const kept = { id: 'streak-3', name: '3-day streak', earnedOn: '2026-11-18' };
+  state.badges['streak-3'] = kept;
+  state.badgesWaived = state.badgesWaived.filter(id => id !== 'streak-3');
+  state.gold += 5;
+  state.goldLedger[TODAY] = Object.assign({}, state.goldLedger[TODAY], { 'badge:streak-3': 5 });
+  state.goldLog.push({ amount: 5, description: 'Badge: 3-day streak', date: TODAY, key: 'badge:streak-3' });
+
+  const again = importBackup(exportBackup(state, '2026-11-19T16:00:00.000Z'), { today: TODAY });
+  assert.deepEqual(again.state.badges['streak-3'], kept);
+  assert.equal(again.state.gold, state.gold);
+  assert.equal(again.state.badges['focus-1h'], undefined);
+  assert.equal(again.state.badges['badday-survivor'], undefined);
+  assert.deepEqual(again.state, state);
+
+  const fresh = importBackup(v2Backup(), { today: TODAY }).state;
+  const gold = fresh.gold;
+  syncBadges(fresh, TODAY);
+  assert.equal(fresh.badges['streak-3'], undefined);
+  assert.equal(fresh.gold, gold);
+  assert.equal(setProjectWords(fresh, 'project-sophomore-year', 13000, TODAY), 1000);
+  syncBadges(fresh, TODAY);
+  assert.equal(fresh.badges['words-1000'].earnedOn, TODAY);
+  assert.equal(fresh.gold, gold + 5);
+  assert.equal(fresh.goldLedger[TODAY]['badge:words-1000'], 5);
 });
 
 test('original-app data migrates without dropping the checked task', () => {

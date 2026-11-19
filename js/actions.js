@@ -424,11 +424,11 @@ export function rollover(state, today) {
   return true;
 }
 
-export function refresh(state, today) {
+export function refresh(state, today, opts = {}) {
   rollover(state, today);
   const roomEvents = catchUpRooms(state, today);
   syncQuest(state, today);
-  const newBadges = syncBadges(state, today);
+  const newBadges = opts.badges === false ? [] : syncBadges(state, today);
   if (state.upgrade && !state.upgrade.reported) {
     state.upgrade.reported = true;
     state.upgrade.newBadges = newBadges.map(b => b.id);

@@ -28,7 +28,7 @@ There is no Actions workflow to switch on. The files are already in the root of 
 1. In the app, open **Today**.
 2. Scroll to **Backup & restore**.
 3. Tap **Restore from a file** and choose `home-base-backup-YYYY-MM-DD.json` from the old app (the file whose backup says schema 2).
-4. Confirm. XP, the ledger, Hearthgold, purchases, streaks, levels, tasks, projects, and notes come over. Rooms start at Waking. XP is not reduced.
+4. Confirm. XP, the ledger, Hearthgold, purchases, streaks, levels, tasks, projects, and notes come over. Rooms start at Waking. XP is not reduced. Badges are not created for old streaks, focus time, moon or Sabbat lists, or a past Bad Day. Those start from what you do after the import. A backup from this app keeps any badges it already has.
 
 A backup you export from this app uses schema 3 and the same kind of filename. You can import that file later, on this phone or another. Export one every so often and keep it somewhere safe (Drive, or an email to yourself).
 

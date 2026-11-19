@@ -85,8 +85,7 @@ export function bannerHTML(state, today) {
   if (state.demo) parts.push(`<div class="notice"><strong>Demo preview.</strong> Nothing here is saved. <button type="button" class="secondary small" data-act="exit-demo">Back to my Home Base</button></div>`);
   const up = state.upgrade;
   if (up && !up.seen) {
-    const badges = (up.newBadges || []).length;
-    parts.push(`<div class="notice"><strong>Your backup is in.</strong> XP, Hearthgold, and tasks came over as they were.${badges ? ` ${badges} badge${badges === 1 ? '' : 's'} for what you already did added +${up.goldAdded} Hearthgold.` : ''} Rooms start at Waking. <button type="button" class="small" data-act="dismiss-upgrade">Got it</button></div>`);
+    parts.push(`<div class="notice"><strong>Your backup is in.</strong> XP, Hearthgold, and tasks came over as they were. Badges start from what you do next. Rooms start at Waking. <button type="button" class="small" data-act="dismiss-upgrade">Got it</button></div>`);
   }
   const due = !state.lastBackup || (Date.now() - Date.parse(state.lastBackup)) > 7 * 864e5;
   const snoozed = state.backupSnooze && Date.now() < Date.parse(state.backupSnooze);

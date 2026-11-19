@@ -127,7 +127,7 @@ function boot() {
     if (raw) {
       const parsed = JSON.parse(raw);
       const wrapped = parsed?.schema === 3 ? { app: 'home-base', schema: 3, data: parsed } : parsed;
-      state = importBackup(wrapped, { today }).state;
+      state = importBackup(wrapped, { today, waiveHistoricalBadges: false }).state;
       loaded = true;
     }
   } catch (e) {

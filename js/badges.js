@@ -31,6 +31,7 @@ function catalogName(id, fallback) {
 
 function earn(state, today, id, name) {
   if (state.badges[id]) return null;
+  if (Array.isArray(state.badgesWaived) && state.badgesWaived.includes(id)) return null;
   state.badges[id] = { id, name, earnedOn: today };
   awardGold(state, today, 'badge:' + id, 5, 'Badge: ' + name);
   return state.badges[id];
@@ -64,27 +65,23 @@ function finishedQuests(state) {
   return list.filter(q => q.doneOn).sort((a, b) => String(a.instanceId).localeCompare(String(b.instanceId)));
 }
 
-/** Grant any badge the saved history already earned. Safe to call often. */
-export function syncBadges(state, today) {
-  if (!state.badges || typeof state.badges !== 'object') state.badges = {};
-  const earned = [];
-  const give = (id, name) => {
-    const row = earn(state, today, id, name || catalogName(id));
-    if (row) earned.push(row);
-  };
+/** Badge ids the current history already qualifies for. Does not pay or save anything. */
+export function qualifiedBadges(state, today) {
+  const list = [];
+  const add = (id, name) => list.push({ id, name: name || catalogName(id) });
 
-  if (roomViews(state, today).some(r => r.level === 4)) give('first-sparkling');
+  if (roomViews(state, today).some(r => r.level === 4)) add('first-sparkling');
 
   const streak = bestStreak(state);
-  if (streak >= 3) give('streak-3');
-  if (streak >= 5) give('streak-5');
-  if (streak >= 7) give('streak-7');
+  if (streak >= 3) add('streak-3');
+  if (streak >= 5) add('streak-5');
+  if (streak >= 7) add('streak-7');
 
   const words = Number(state.wordsAdded) || 0;
-  for (const n of WORD_MILESTONES) if (words >= n) give('words-' + n);
+  for (const n of WORD_MILESTONES) if (words >= n) add('words-' + n);
 
   const hours = focusHours(state);
-  for (const n of FOCUS_HOUR_MILESTONES) if (hours >= n) give('focus-' + n + 'h');
+  for (const n of FOCUS_HOUR_MILESTONES) if (hours >= n) add('focus-' + n + 'h');
 
   const dates = Object.keys(state.days || {}).sort();
   const moons = new Set();
@@ -98,14 +95,38 @@ export function syncBadges(state, today) {
     if (s) sabbats.add(s);
   }
   for (const phase of [...PRINCIPAL, 'waxing-crescent', 'waxing-gibbous', 'waning-gibbous', 'waning-crescent']) {
-    if (moons.has(phase)) give('moon:' + phase);
+    if (moons.has(phase)) add('moon:' + phase);
   }
-  for (const sab of SABBAT_ORDER) if (sabbats.has(sab)) give('sabbat:' + sab);
+  for (const sab of SABBAT_ORDER) if (sabbats.has(sab)) add('sabbat:' + sab);
 
-  if ((state.xpLog || []).some(e => e.key === 'badday-protocol' && e.amount > 0)) give('badday-survivor');
+  if ((state.xpLog || []).some(e => e.key === 'badday-protocol' && e.amount > 0)) add('badday-survivor');
 
-  for (const q of finishedQuests(state)) give('quest:' + q.instanceId, 'Quest: ' + q.name);
+  for (const q of finishedQuests(state)) add('quest:' + q.instanceId, 'Quest: ' + q.name);
 
+  return list;
+}
+
+/**
+ * Remember badges this history already qualifies for, without paying them.
+ * Used when a backup is imported. Badges already stored on the file are left alone.
+ */
+export function waiveHistoricalBadges(state, today) {
+  if (!state.badges || typeof state.badges !== 'object') state.badges = {};
+  const waived = new Set(Array.isArray(state.badgesWaived) ? state.badgesWaived : []);
+  for (const { id } of qualifiedBadges(state, today)) {
+    if (!state.badges[id]) waived.add(id);
+  }
+  state.badgesWaived = [...waived].sort();
+}
+
+/** Grant badges for achievements that were not already true at import. Safe to call often. */
+export function syncBadges(state, today) {
+  if (!state.badges || typeof state.badges !== 'object') state.badges = {};
+  const earned = [];
+  for (const { id, name } of qualifiedBadges(state, today)) {
+    const row = earn(state, today, id, name);
+    if (row) earned.push(row);
+  }
   return earned;
 }
 

@@ -10,6 +10,7 @@ import { freshQuests, normalizeQuests } from './quests.js';
 import { defaultTracker } from './tracker.js';
 import { levelIndex, totalXP } from './xp.js';
 import { refresh } from './actions.js';
+import { waiveHistoricalBadges } from './badges.js';
 
 export const V2_APP = 'home-base-quest-board';
 export const V3_APP = 'home-base';
@@ -60,6 +61,8 @@ export function normalize3(raw, today) {
   if (!n.profile.name) n.profile.name = 'Ela';
   if (!n.profile.className) n.profile.className = 'Domestic Mage / Author';
   if (!hadBadges) n.badges = {};
+  if (!Array.isArray(n.badgesWaived)) n.badgesWaived = [];
+  else n.badgesWaived = [...new Set(n.badgesWaived.map(String))].sort();
   n.wordsAdded = Math.max(0, num(n.wordsAdded, 0));
   if (!hadBaselines || typeof n.wordBaselines !== 'object' || Array.isArray(n.wordBaselines)) n.wordBaselines = {};
   n.schema = 3;
@@ -278,7 +281,12 @@ export function importBackup(obj, opts = {}) {
   } else {
     throw new Error('This file doesn’t look like a Home Base backup.');
   }
-  refresh(state, today);
+  // A backup must not mint badges or Hearthgold for work already in the file.
+  // Badges stored on a schema 3 backup stay as they are. Reloading this phone's
+  // own save passes waiveHistoricalBadges: false so new achievements can still pay.
+  const waive = opts.waiveHistoricalBadges !== false;
+  refresh(state, today, { badges: !waive });
+  if (waive) waiveHistoricalBadges(state, today);
   return { state, mode };
 }
 
