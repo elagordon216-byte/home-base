@@ -34,10 +34,10 @@ A backup you export from this app uses schema 3 and the same kind of filename. Y
 
 ## Day to day
 
-- **Home** is the house. Rooms brighten when you tend them and dim slowly when you don’t. Fading never takes XP.
-- **Today** is the checklist, the Now card, essentials, and the weekly quest.
+- **Home** is the house. A room moves up one level when you do its main clean on a focus day, and down one level if that week’s focus days are missed. The level never changes your XP.
+- **Today** is the checklist, the Now card, essentials, and the weekly quest. Self-care (shower, teeth, hair, and a few other grooming steps) is on the list at 1 XP and 1 gold, the same as the other ordinary tasks.
 - **Write** opens on the day’s pen name. Tuesday and Sunday are no-writing days. The morning novel is optional those days and still pays +3 XP if you do it.
-- **Witchy**, **Log**, **Plan**, and **Rewards** are the same jobs as v2, plus the character sheet.
+- **Witchy**, **Log**, **Plan**, and **Rewards** are the same jobs as v2, plus the character sheet. Lunar and Sabbat tasks stay checked until the next phase or Sabbat, or until you uncheck them.
 
 After the first visit, the app works with no signal. When a new version is published, the next time you open it you may see “Home Base updated.” Close it and open it again. Your saved progress stays on the phone.
 

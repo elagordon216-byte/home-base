@@ -160,3 +160,40 @@ export function sabbatOfDay(day, iso) {
   if (w?.sabbatManual && w.sabbatChoice) return w.sabbatChoice;
   return upcomingSabbats(iso, 1)[0].key;
 }
+
+function phaseStart(iso) {
+  const calc = moonPhaseFor(iso);
+  if (calc.exact) return iso;
+  if (calc.since?.at) return isoOf(calc.since.at);
+  return iso;
+}
+
+/** The moon-phase stretch this day belongs to. A manual phase is its own stretch. */
+export function phaseWindow(day, iso) {
+  const phase = phaseOfDay(day, iso);
+  const start = phaseStart(iso);
+  const calc = moonPhaseFor(iso).phase;
+  if (phase === calc) return { kind: 'lunar', phase, start };
+  return { kind: 'lunar', phase, start: 'manual:' + phase + ':' + start };
+}
+
+function sabbatOccurrence(key, iso) {
+  const y = +iso.slice(0, 4);
+  const all = [...sabbatsOfYear(y - 1), ...sabbatsOfYear(y), ...sabbatsOfYear(y + 1)].filter(s => s.key === key);
+  return all.find(s => s.end >= iso) || all[all.length - 1] || null;
+}
+
+/** The sabbat stretch this day belongs to. Checks reset when the next sabbat becomes current. */
+export function sabbatWindow(day, iso) {
+  const key = sabbatOfDay(day, iso);
+  const upcoming = upcomingSabbats(iso, 1)[0];
+  if (key === upcoming.key) return { kind: 'sabbat', key, start: upcoming.start };
+  const match = sabbatOccurrence(key, iso);
+  return { kind: 'sabbat', key, start: match ? match.start : iso };
+}
+
+export function sameSpan(a, b) {
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === 'lunar') return a.phase === b.phase && a.start === b.start;
+  return a.key === b.key && a.start === b.start;
+}

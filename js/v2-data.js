@@ -1,7 +1,10 @@
 // Extracted from home-base-v2.html so task text, XP, and gold catalogs stay exact.
-export const LIST_GROUPS = ['morning', 'home', 'laundry', 'author', 'evening'];
+export const LIST_GROUPS = ['morning', 'self', 'home', 'laundry', 'author', 'evening'];
 export const DEFAULT_LISTS = {
   morning: [['m-dressed', 'Get myself dressed and ready', 1], ['m-kids', 'Get kids dressed / basic care', 1], ['m-breakfast', 'Breakfast and drinks for everyone', 1], ['m-preschool', 'Preschool bag and drop-off (if applicable)', 1]],
+  // D37. Same 1 XP as the other ordinary checklist rows. Gold stays 1, the
+  // non-author checklist amount (and the same gold as "One self-care action").
+  self: [['s-shower', 'Shower', 1], ['s-teeth', 'Brush teeth', 1], ['s-hair', 'Brush hair', 1], ['s-face', 'Wash face', 1], ['s-deodorant', 'Deodorant', 1], ['s-skin', 'Skincare or moisturizer', 1]],
   home: [['h-dishes', 'Dishes and kitchen reset', 1], ['h-dirty-load', 'Start or advance one dirty laundry load', 1], ['h-main-clean', 'Today’s main cleaning task', 1], ['h-reset', '10-minute reset / clear walkways', 1]],
   laundry: [['l-washer', 'Check washer / move load along', 1], ['l-dryer', 'Check dryer', 1], ['l-empty-basket', 'Empty one clean basket completely', 2], ['l-sort', 'Sort loose clean laundry into family baskets', 1]],
   author: [['a-open', 'Open {priority} and begin', 2], ['a-10', '10-minute focused block', 2], ['a-25', '25-minute focused block', 2], ['a-another', 'Another focused block (optional)', 2], ['a-save', 'Save work and leave a next-step note', 1]],

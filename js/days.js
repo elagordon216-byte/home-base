@@ -46,10 +46,10 @@ export function essentialsOn(day, iso) {
 }
 
 /**
- * Fade does not count this date (D4, D32).
+ * A focus day does not count as missed on this date (D4, D32, D36).
  * Sunday pauses by weekday. Sick Day and Hyperfocus pause even if the full list is open.
  * Low energy and a manual Bad Day toggle also pause, because that is Bad Day mode.
- * A missed day (no saved record) pauses only on Sunday.
+ * A day with no saved record pauses only on Sunday. A clean done on a paused focus day still counts.
  */
 export function isFadePaused(state, iso) {
   if (weekday(iso) === 0) return true;
@@ -86,9 +86,9 @@ export function dayNotice(type, energy, iso) {
   if (type === 'weekday') bits.push('Weekday: essentials first, then today’s main cleaning task.');
   if (type === 'break') bits.push('Weekend or break: no preschool run. A slower start is part of the plan.');
   if (type === 'sick') bits.push('Sick day: kids safe, everyone fed, urgent needs only. Cleaning and author work are optional.');
-  if (type === 'hyperfocus') bits.push('Hyperfocus day: +10 XP. Room fading pauses. The four essentials are enough, and the full list is still there.');
+  if (type === 'hyperfocus') bits.push('Hyperfocus day: +10 XP. A focus day missed for this reason doesn’t drop a room. The four essentials are enough, and the full list is still there.');
   if (w === 2) bits.push('Tuesday: no writing, unless you tap “Writing anyway.”');
-  if (w === 0) bits.push('Sunday: no writing, and room fading pauses.');
+  if (w === 0) bits.push('Sunday: no writing. Sunday isn’t a cleaning focus day.');
   if (energy === 'low') bits.push('Low energy: bare basics are enough.');
   if (energy === 'high') bits.push('Extra energy is welcome. Every extra task stays optional.');
   return bits.join(' ');

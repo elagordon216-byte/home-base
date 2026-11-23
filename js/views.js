@@ -1,7 +1,8 @@
 import { esc, panel, taskButton } from './html.js';
 import { dateShift, fmtDate, fmtTime, isoOf, weekStart, weekday, WEEKDAYS } from './dates.js';
 import { DAY_TYPES, dayNotice, dayTypeName, dayTypeOf, essentialsOn, morningNovelOptional, noWriting, preschoolUnlikely } from './days.js';
-import { FOCUS_LABELS, LEVEL_NAMES, MAIN_CLEAN, TASK_ROOMS, focusRoomIds, roomViews } from './rooms.js';
+import { BASKET_ROOMS, FOCUS_LABELS, MAIN_CLEAN, TASK_ROOMS, focusRoomIds, roomViews } from './rooms.js';
+import { carriedOn } from './witchy.js';
 import { nowCard } from './now.js';
 import { badgeList } from './badges.js';
 import { isCarried, canPick } from './quests.js';
@@ -28,6 +29,7 @@ const TABS = [
 
 const GROUP_TITLES = {
   morning: ['☀️ Morning launch', 'Family basics'],
+  self: ['🚿 Self-care', 'A quick version counts'],
   home: ['🍽️ Kitchen & home reset', 'Functional, not perfect'],
   laundry: ['🧺 Laundry Mountain', 'Clean backlog'],
   author: ['📚 Author tasks', 'Short blocks count'],
@@ -126,12 +128,11 @@ function roomButton(view, selected, baskets) {
     icon = `<div class="baskets">${(baskets || []).slice(0, 5).map((b, i) => `<u class="${b.emptied ? 'e' : ''}" style="background:${['#d8b17b', '#c5d3bd', '#d7c3d9', '#d9c9ad', '#b8d0d5'][i] || '#ddd'}"></u>`).join('')}</div>`;
   }
   const flag = view.gain ? `<span class="gain">+${view.gain} today</span>` : (view.focus ? '<span class="focusflag">⭐ focus</span>' : '');
-  const fade = !view.gain && l > 0 && !view.paused ? `<span class="fadein">${view.untouched}/7</span>` : '';
   return `<button type="button" class="room${l === 4 ? ' spark' : ''}${selected === view.id ? ' sel' : ''}" style="background:${view.fill}" data-act="room" data-id="${view.id}" aria-label="${esc(view.name)}, ${esc(view.levelName)}, ${view.levelNumber} of 5">
     ${mess}${spark}<b>${esc(view.name).replace('/', '/<wbr>')}</b>${icon}
     <span class="lv">${esc(view.levelName)}${l === 4 ? ' ✨' : ''} · ${view.levelNumber}/5</span>
     <div class="pips">${[0, 1, 2, 3, 4].map(i => `<i class="${i <= l ? 'f' : ''}"></i>`).join('')}</div>
-    ${flag}${fade}
+    ${flag}
   </button>`;
 }
 
@@ -149,26 +150,25 @@ function homeHTML(state, today, minutes) {
     if (!found || found.task.archived) continue;
     tasks.push(taskButton({
       kind: 'task', id, label: tpl(state, found.task.label),
-      sub: rooms.length > 1 ? 'Also counts for ' + rooms.filter(r => r !== room.id).map(r => views.find(v => v.id === r)?.name).join(', ') : '',
+      sub: 'Everyday task. It does not move the room.',
       xp: found.task.xp + ' XP', done: checked(state, today, 'task:' + id),
     }));
   }
   for (const b of state.baskets || []) {
     if (b.archived && !checked(state, today, 'basket:' + b.id)) continue;
-    const owners = { basket0: ['laundry', 'mine'], basket1: ['laundry', 'mine'], basket2: ['laundry', 'kids'], basket3: ['laundry', 'kids'], basket4: ['laundry'] };
-    const rooms = owners[b.id] || ['laundry'];
+    const rooms = BASKET_ROOMS[b.id] || ['laundry'];
     if (!rooms.includes(room.id)) continue;
     tasks.push(taskButton({
       kind: 'basket', id: b.id, label: 'Emptied: ' + b.name,
-      sub: rooms.length > 1 ? 'Also counts for ' + rooms.filter(r => r !== room.id).map(r => views.find(v => v.id === r)?.name).filter(Boolean).join(', ') + ' · XP once' : 'Laundry only · XP once',
+      sub: 'Folded and put away. XP is paid once, and the room level stays put.',
       xp: '2 XP', done: checked(state, today, 'basket:' + b.id),
     }));
   }
-  if (!tasks.length && room.id === 'bath') tasks.push('<p class="muted">No daily task lives here. It brightens from Monday’s cleaning focus, or from a Friday whole-house reset.</p>');
+  if (!tasks.length && room.id === 'bath') tasks.push('<p class="muted">No everyday task lives here. It moves up when the main clean is done on Monday, or on the Friday whole-house reset.</p>');
   const bonus = focus.length ? 1 : 0;
   const mainSub = focus.length
-    ? 'Counts for ' + (focus.length >= 6 ? 'every room' : focus.map(id => views.find(v => v.id === id)?.name).join(', ')) + ' · 1 XP + 1 focus bonus'
-    : 'No room focus today, so no bonus and no room credit';
+    ? 'Moves ' + (focus.length >= 6 ? 'every room' : focus.map(id => views.find(v => v.id === id)?.name).join(', ')) + ' up one level · 1 XP + 1 focus bonus'
+    : 'No room focus today, so no level change and no bonus';
   const decor = (state.goldInventory || []).map(item => `<span>${DECOR[item.id] || '✨'} ${esc(item.name)}</span>`).join('');
   const xp = dayXP(state, today);
   return [
@@ -179,7 +179,7 @@ function homeHTML(state, today, minutes) {
         <svg class="roof" viewBox="0 0 520 78" aria-hidden="true"><path d="M25 74 L260 8 L495 74 Z" fill="#8a6657" stroke="#60493e" stroke-width="4"/><path d="M70 70 L260 22 L450 70" fill="none" stroke="#b98e75" stroke-width="7"/><circle cx="452" cy="28" r="16" fill="#f2d98a"/></svg>
         <div class="rooms">${views.map(v => roomButton(v, selected, baskets)).join('')}</div>
       </div>
-      <p class="muted">Tap a room. Five levels, and the top one sparkles. Fading never takes XP. ${room.paused ? 'Fading is paused today.' : 'Quiet rooms dim one level after 7 untouched days.'}</p>
+      <p class="muted">Tap a room. Five levels, and the top one sparkles. A room moves up on its focus day and drops one level if that week is missed. The level never changes XP.${room.paused && room.focus ? ' Today doesn’t count as a miss.' : ''}</p>
       <div class="stats">
         <div class="stat"><span>Today’s XP</span><strong>${xp}</strong></div>
         <div class="stat"><span>Total XP</span><strong>${totalXP(state)}</strong></div>
@@ -189,7 +189,7 @@ function homeHTML(state, today, minutes) {
     </section>`,
     `<section class="panel">
       <div class="head"><h2>${room.icon} ${esc(room.name)}</h2><span class="pill">${esc(room.levelName)} · ${room.levelNumber}/5</span></div>
-      <p class="muted">${room.focus ? '⭐ Today’s cleaning focus is here (' + esc(FOCUS_LABELS[wd]) + '). This room climbs 2 levels if you do a task here.' : 'Any task here climbs this room 1 level today.'}</p>
+      <p class="muted">${room.focus ? '⭐ Focus day (' + esc(FOCUS_LABELS[wd]) + '). The main cleaning task moves this room up one level. Other tasks don’t.' : 'This room moves up only when you clean it on a focus day.'}</p>
       <div class="tasks">${tasks.join('')}</div>
       <div class="tasks" style="margin-top:8px">${taskButton({
         kind: 'task', id: MAIN_CLEAN, label: 'Today’s main cleaning task', sub: mainSub,
@@ -247,9 +247,11 @@ function focusHTML(state, today) {
   const sab = sabbatOfDay(d, today);
   const lunarTasks = (lunarPhaseData[phase] || lunarPhaseData.new).tasks;
   const sabTasks = (sabbatData[sab] || sabbatData.samhain).tasks;
+  const lunarOn = carriedOn(state, today, 'lunar');
+  const sabOn = carriedOn(state, today, 'sabbat');
   const witchDone = WITCHY_DAILY.filter(([id]) => w.checks?.[id]).length;
-  const lunarDone = lunarTasks.filter(([id]) => w.lunarChecks?.[phase + ':' + id]).length;
-  const sabDone = sabTasks.filter(([id]) => w.sabbatChecks?.[sab + ':' + id]).length;
+  const lunarDone = lunarTasks.filter(([id]) => lunarOn[phase + ':' + id]).length;
+  const sabDone = sabTasks.filter(([id]) => sabOn[sab + ':' + id]).length;
   const authorList = (state.lists.author || []).filter(t => !t.archived);
   const authorDone = authorList.filter(t => d.checks?.['task:' + t.id]).length;
   const cards = [
@@ -300,7 +302,7 @@ function listTasks(state, date, group) {
     return rows + `<div class="row"><input id="new-${group}" type="text" placeholder="New everyday task"><button type="button" class="small" data-act="add-recurring" data-group="${group}">Add</button></div>`;
   }
   const rows = (state.lists[group] || []).filter(t => !t.archived || day.checks['task:' + t.id]).map(t => {
-    let sub = '+' + t.xp + ' XP';
+    let sub = group === 'self' ? 'A quick version counts.' : '+' + t.xp + ' XP';
     if (t.id === 'm-preschool' && preschoolUnlikely(day.notes, date)) sub += ' · probably not needed today';
     if (t.id === MAIN_CLEAN && focusRoomIds(weekday(date)).length) sub = '1 XP + 1 focus bonus';
     return taskButton({ kind: 'task', id: t.id, label: tpl(state, t.label), sub, xp: (t.id === MAIN_CLEAN && focusRoomIds(weekday(date)).length ? t.xp + 1 : t.xp) + ' XP', done: !!day.checks['task:' + t.id] });
@@ -370,7 +372,7 @@ function todayHTML(state, todayReal, minutes) {
     ${questHTML(state, date)}
     ${panel('⚡ Quick wins', `<p class="muted">One tap each time it happens. Hard starts count.</p><div class="quick">${quick}</div>`, { id: 'quick', open: openPanel(state, 'quick') })}
     ${showLists ? lists : ''}
-    ${showLists ? panel('🧺 Baskets', `<p class="muted">A basket counts when the clean laundry is folded and fully put away. XP is paid once, and it also brightens the owner’s room. Towels and bedding brighten laundry only.</p><div class="tasks">${baskets}</div><div class="row" style="margin-top:8px"><input id="newBasket" type="text" placeholder="Basket name"><button type="button" class="small" data-act="add-basket">Add basket</button></div>`, { id: 'baskets', open: openPanel(state, 'baskets') }) : ''}
+    ${showLists ? panel('🧺 Baskets', `<p class="muted">A basket counts when the clean laundry is folded and fully put away. XP is paid once. Putting a basket away does not move a room.</p><div class="tasks">${baskets}</div><div class="row" style="margin-top:8px"><input id="newBasket" type="text" placeholder="Basket name"><button type="button" class="small" data-act="add-basket">Add basket</button></div>`, { id: 'baskets', open: openPanel(state, 'baskets') }) : ''}
     ${showLists ? panel('📞 To-dos', `<div class="tasks">${todoRows}</div><div class="row" style="margin-top:8px"><input id="newTodo" type="text" placeholder="Add a to-do (it carries over)"><button type="button" class="small" data-act="add-todo">Add</button></div><label class="field">Notes<textarea id="adminNotes" data-bind="note" data-key="admin">${esc(day.notes?.admin || '')}</textarea></label>`, { id: 'todos', open: openPanel(state, 'todos') }) : ''}
     ${showLists ? `<section class="panel"><div class="row"><input id="newTask" type="text" placeholder="Add a task for today"><button type="button" class="small" data-act="add-task">Add</button></div><label class="muted" style="display:flex;gap:8px;align-items:center;min-height:44px"><input id="repeatTask" type="checkbox" style="width:22px;height:22px"> Repeat every day</label></section>` : ''}
     ${panel('📝 Brain dump', `<textarea id="brain" data-bind="note" data-key="brain">${esc(day.notes?.brain || '')}</textarea><label class="field">Shutdown note<input id="shutdown" data-bind="note" data-key="shutdown" type="text" value="${esc(day.notes?.shutdown || '')}"></label><div class="row"><button type="button" data-act="clear-today" class="secondary">Clear today’s checkboxes</button></div>`, { id: 'brain', open: openPanel(state, 'brain') })}
@@ -527,24 +529,26 @@ function witchyHTML(state, today) {
     const phase = phaseOfDay(day, date);
     const auto = moonPhaseFor(date);
     const data = lunarPhaseData[phase] || lunarPhaseData.new;
-    const checks = day.witchy?.lunarChecks || {};
+    const lunarChecks = carriedOn(state, date, 'lunar');
     const options = Object.entries(PHASE_NAMES).map(([id, name]) => `<option value="${id}"${id === phase ? ' selected' : ''}>${esc(name)}</option>`).join('');
     const nexts = PRINCIPAL.map(t => [t, nextMoonEvent(t, date)]).filter(([, e]) => e);
     body = `<label class="field">Moon phase<select id="moonPhase" data-bind="moon">${options}</select></label>
       <p class="muted">${phase === auto.phase ? 'Calculated for this date: ' + esc(PHASE_NAMES[auto.phase]) : 'You picked a different phase. Calculated: ' + esc(PHASE_NAMES[auto.phase])} ${auto.exact ? '· exact ' + esc(fmtTime(auto.exact)) : ''}</p>
+      <p class="muted">Once checked, a task stays checked until the next phase, or until you uncheck it. It pays 1 Hearthgold when you check it.</p>
       <div class="notice">${esc(data.title)}</div>
-      <div class="tasks">${data.tasks.map(([id, label]) => taskButton({ kind: 'lunar', id: phase + ':' + id, label, sub: 'Optional. A small version counts.', xp: '1 🪙', done: !!checks[phase + ':' + id] })).join('')}</div>
+      <div class="tasks">${data.tasks.map(([id, label]) => taskButton({ kind: 'lunar', id: phase + ':' + id, label, sub: 'Optional. A small version counts.', xp: '1 🪙', done: !!lunarChecks[phase + ':' + id] })).join('')}</div>
       <p class="muted">${nexts.map(([t, e]) => esc(PHASE_NAMES[t]) + ' · ' + esc(fmtDate(isoOf(e.at), { weekday: false }))).join(' · ')}</p>`;
   } else {
     const sab = sabbatOfDay(day, date);
     const data = sabbatData[sab] || sabbatData.samhain;
-    const checks = day.witchy?.sabbatChecks || {};
+    const sabChecks = carriedOn(state, date, 'sabbat');
     const ups = upcomingSabbats(date, 6);
     const options = Object.entries(SABBAT_INFO).map(([id, info]) => `<option value="${id}"${id === sab ? ' selected' : ''}>${info.emoji} ${esc(info.name)}</option>`).join('');
     body = `<label class="field">Sabbat<select id="sabbatPick" data-bind="sabbat">${options}</select></label>
       <p class="muted">Next: ${esc(SABBAT_INFO[ups[0].key].name)}, ${esc(sabbatRange(ups[0]))}.</p>
+      <p class="muted">Once checked, a task stays checked until the next Sabbat, or until you uncheck it. It pays 1 Hearthgold when you check it.</p>
       <div class="notice">${esc(data.title)}</div>
-      <div class="tasks">${data.tasks.map(([id, label]) => taskButton({ kind: 'sabbat', id: sab + ':' + id, label, sub: 'Adapt it to your household.', xp: '1 🪙', done: !!checks[sab + ':' + id] })).join('')}</div>
+      <div class="tasks">${data.tasks.map(([id, label]) => taskButton({ kind: 'sabbat', id: sab + ':' + id, label, sub: 'Adapt it to your household.', xp: '1 🪙', done: !!sabChecks[sab + ':' + id] })).join('')}</div>
       <div class="tasks">${ups.map(s => `<div class="card"><strong>${SABBAT_INFO[s.key].emoji} ${esc(SABBAT_INFO[s.key].name)}</strong><small>${esc(sabbatRange(s))}. ${esc(SABBAT_INFO[s.key].desc)}</small></div>`).join('')}</div>`;
   }
   return `<div class="tabs" style="position:static;padding-left:0">${tabs}</div><section class="panel">${body}</section>`;
@@ -588,7 +592,7 @@ function planHTML(state) {
     <div class="tasks">${days}</div>
   </section>
   <section class="panel"><h2>Daily rhythm</h2>
-    <div class="card"><strong>Morning</strong><small>Get dressed, feed everyone, preschool bag, 7:50 drop-off on school days. Start with the morning novel when it’s a writing day.</small></div>
+    <div class="card"><strong>Morning</strong><small>Get dressed, feed everyone, preschool bag, 7:50 drop-off on school days. Shower, teeth, and hair are on the self-care list. Start with the morning novel when it’s a writing day.</small></div>
     <div class="card"><strong>While they’re at school</strong><small>Short housework with the 1-year-old nearby. Don’t count on a nap for a long project.</small></div>
     <div class="card"><strong>3:20 pickup</strong><small>Snack, connection, then dinner around 5:00.</small></div>
     <div class="card"><strong>Evening</strong><small>Kids in bed around 8:30. Bedtime outranks housework.</small></div>

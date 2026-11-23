@@ -125,6 +125,12 @@ test('v2 backup imports losslessly and round-trips through schema 3', () => {
   assert.equal(state.lists.home.find(t => t.id === 'h-dishes').xp, 1);
   assert.equal(state.days['2026-11-18'].notes.author, 'Stopped at chapter 12');
   assert.equal(state.days['2026-11-18'].checks['basket:basket0'], true);
+  assert.equal(state.days['2026-11-18'].witchy.lunarChecks['new:pause'], true);
+  assert.equal(state.lists.self.find(t => t.id === 's-shower').xp, 1);
+  assert.equal(state.lists.self.find(t => t.id === 's-hair').label, 'Brush hair');
+  assert.equal(state.lists.self.filter(t => t.id === 's-shower').length, 1);
+  assert.equal(state.rooms.kitchen.focus.tended, false);
+  assert.equal(state.xpLog.length, beforeLog.length);
   assert.equal(state.rewardLog[0].name, 'Tiny reward');
   assert.equal(state.levelRewardsClaimed[2], '2026-11-01');
   assert.equal(state.endOfDayLog['2026-11-16'].taskXP, 1);
@@ -179,6 +185,35 @@ test('a schema 3 badge round-trips, and new work after import can still earn a b
   assert.equal(fresh.badges['words-1000'].earnedOn, TODAY);
   assert.equal(fresh.gold, gold + 5);
   assert.equal(fresh.goldLedger[TODAY]['badge:words-1000'], 5);
+});
+
+test('an older schema 3 backup gains self-care rows and room focus defaults without changing XP or gold', () => {
+  const { state } = importBackup(v2Backup(), { today: TODAY });
+  const xp = totalXP(state);
+  const gold = state.gold;
+  const raw = exportBackup(state, '2026-11-19T17:00:00.000Z');
+  delete raw.data.lists.self;
+  for (const room of Object.values(raw.data.rooms)) delete room.focus;
+  const again = importBackup(raw, { today: TODAY });
+  assert.equal(totalXP(again.state), xp);
+  assert.equal(again.state.gold, gold);
+  assert.deepEqual(again.state.xpLog, state.xpLog);
+  assert.equal(again.state.lists.home.find(t => t.id === 'h-dishes').label, 'Dishes, renamed');
+  assert.equal(again.state.lists.self.find(t => t.id === 's-shower').xp, 1);
+  assert.equal(again.state.lists.self.find(t => t.id === 's-shower').archived, undefined);
+  assert.equal(again.state.lists.self.filter(t => t.id === 's-teeth').length, 1);
+  assert.equal(again.state.rooms.kitchen.level, state.rooms.kitchen.level);
+  assert.equal(again.state.rooms.kitchen.focus.tended, false);
+  assert.equal(again.state.rooms.kitchen.focus.week, null);
+});
+
+test('archiving a self-care task survives a backup round-trip', () => {
+  const { state } = importBackup(v2Backup(), { today: TODAY });
+  state.lists.self.find(t => t.id === 's-shower').archived = true;
+  const again = importBackup(exportBackup(state, '2026-11-19T17:30:00.000Z'), { today: TODAY });
+  const showers = again.state.lists.self.filter(t => t.id === 's-shower');
+  assert.equal(showers.length, 1);
+  assert.equal(showers[0].archived, true);
 });
 
 test('original-app data migrates without dropping the checked task', () => {

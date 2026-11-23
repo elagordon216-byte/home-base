@@ -66,6 +66,7 @@ function poolFor(blockId, { wd, dayType, notes, iso, writing }) {
   if (blockId === 'morning') {
     const ids = ['morning-novel', 'm-dressed', 'm-kids', 'm-breakfast'];
     if (!preschoolUnlikely(notes, iso)) ids.push('m-preschool');
+    ids.push('s-shower', 's-teeth', 's-hair', 's-face', 's-deodorant', 's-skin');
     if (morningNovelOptional(iso)) return ids.filter(id => id !== 'morning-novel');
     return ids;
   }

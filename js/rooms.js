@@ -1,6 +1,9 @@
-// Room levels D3–D12. Levels never change XP. Dusty is the floor.
+// Room levels (D36). Visual only. A level never changes XP or gold.
+// A room moves up one level when its main clean is done on a focus day.
+// If none of its focus days are cleaned that week, it drops one level.
+// Dusty is the floor. Sparkling is the cap.
 
-import { dateShift, weekday } from './dates.js';
+import { dateShift, isISO, weekday, weekStart } from './dates.js';
 import { isFadePaused } from './days.js';
 
 export const ROOMS = [
@@ -16,7 +19,6 @@ export const ROOMS = [
 export const LEVEL_NAMES = ['Dusty', 'Waking', 'Tidy', 'Bright', 'Sparkling'];
 export const START_LEVEL = 1;
 export const MAX_LEVEL = 4;
-export const FADE_DAYS = 7;
 
 export const FOCUS_ROOMS = {
   0: [],
@@ -38,7 +40,7 @@ export const FOCUS_LABELS = [
   'Family maintenance',
 ];
 
-/** Task id → rooms it brightens. Basket rows are separate. Main cleaning uses the focus list. */
+/** Tasks that live in a room. They do not move its level. Main cleaning does, on a focus day. */
 export const TASK_ROOMS = {
   'm-breakfast': ['kitchen'],
   'h-dishes': ['kitchen'],
@@ -58,7 +60,7 @@ export const TASK_ROOMS = {
   'e-bedtime': ['kids'],
 };
 
-/** Default basket ids. Towels/bedding are laundry only (D12). A renamed basket keeps its id. */
+/** Which room shows this basket. Putting it away does not move the level. Towels stay in laundry. */
 export const BASKET_ROOMS = {
   basket0: ['laundry', 'mine'],
   basket1: ['laundry', 'mine'],
@@ -73,8 +75,24 @@ export function focusRoomIds(wd) {
   return FOCUS_ROOMS[wd] || [];
 }
 
+function blankFocus() {
+  return { week: null, tended: false, open: false, dropped: null, settled: null };
+}
+
+function focusState(raw) {
+  const f = raw?.focus;
+  if (!f || typeof f !== 'object') return blankFocus();
+  return {
+    week: isISO(f.week) ? f.week : null,
+    tended: !!f.tended,
+    open: !!f.open,
+    dropped: isISO(f.dropped) ? f.dropped : null,
+    settled: isISO(f.settled) ? f.settled : null,
+  };
+}
+
 export function initialRooms() {
-  return Object.fromEntries(ROOMS.map(r => [r.id, { level: START_LEVEL, untouched: 0 }]));
+  return Object.fromEntries(ROOMS.map(r => [r.id, { level: START_LEVEL, untouched: 0, focus: blankFocus() }]));
 }
 
 export function normalizeRooms(rooms) {
@@ -87,32 +105,30 @@ export function normalizeRooms(rooms) {
     out[r.id] = {
       level: Number.isFinite(level) ? Math.max(0, Math.min(MAX_LEVEL, level)) : START_LEVEL,
       untouched: Number.isFinite(untouched) ? Math.max(0, untouched) : 0,
+      focus: focusState(s),
     };
   }
   return out;
 }
 
-function roomsForBasket(id) {
-  return BASKET_ROOMS[id] || ['laundry'];
+/** Latest weekday this room is on the cleaning focus list. Friday for every room. */
+export function lastFocusWeekday(roomId) {
+  let last = -1;
+  for (let wd = 0; wd <= 6; wd++) {
+    if (focusRoomIds(wd).includes(roomId)) last = wd;
+  }
+  return last;
 }
 
+/** True only when today’s main clean is checked and this room is in focus. */
 export function isTouched(roomId, checks, wd) {
-  if (!checks) return false;
-  if (checks['task:' + MAIN_CLEAN] && focusRoomIds(wd).includes(roomId)) return true;
-  for (const [taskId, rooms] of Object.entries(TASK_ROOMS)) {
-    if (checks['task:' + taskId] && rooms.includes(roomId)) return true;
-  }
-  for (const key of Object.keys(checks)) {
-    if (!checks[key] || !key.startsWith('basket:')) continue;
-    if (roomsForBasket(key.slice(7)).includes(roomId)) return true;
-  }
-  return false;
+  if (!checks?.['task:' + MAIN_CLEAN]) return false;
+  return focusRoomIds(wd).includes(roomId);
 }
 
-/** +2 on a focus day, +1 on any other day with a task here, otherwise 0. Capped by the caller. */
+/** +1 when the room is cleaned on its focus day, otherwise 0. Capped by the caller. */
 export function gain(roomId, checks, wd) {
-  if (!isTouched(roomId, checks, wd)) return 0;
-  return focusRoomIds(wd).includes(roomId) ? 2 : 1;
+  return isTouched(roomId, checks, wd) ? 1 : 0;
 }
 
 export function liveLevel(rooms, roomId, checks, wd) {
@@ -121,38 +137,58 @@ export function liveLevel(rooms, roomId, checks, wd) {
 }
 
 /**
- * End one day. Climb is baked in first. An untouched, unpaused day adds 1
- * toward the fade. At 7 the room dims one level and the count restarts (D12).
- * A paused day still keeps a climb from tasks done that day.
+ * End one day. A focus-day clean bakes in +1. On the room’s last focus day
+ * of the week, no clean that week drops one level. A paused focus day is not
+ * a miss. Sick, hyperfocus, and bad-day pauses still count a clean if one happened.
+ * Calling this twice for the same date does not move the level again.
  */
-export function settleDay(rooms, checks, wd, fadePaused) {
+export function settleDay(rooms, checks, iso, fadePaused) {
+  const wd = weekday(iso);
+  const week = weekStart(iso);
   const next = {};
   const events = [];
   for (const room of ROOMS) {
-    const s = rooms[room.id] || { level: START_LEVEL, untouched: 0 };
-    let level = Math.min(MAX_LEVEL, s.level + gain(room.id, checks, wd));
-    let untouched = s.untouched || 0;
-    if (isTouched(room.id, checks, wd)) {
-      untouched = 0;
-    } else if (!fadePaused) {
-      untouched += 1;
-      if (untouched >= FADE_DAYS) {
-        if (level > 0) {
-          level -= 1;
-          events.push({ type: 'dim', roomId: room.id, to: level });
-        }
-        untouched = 0;
-      }
+    const s = rooms[room.id] || { level: START_LEVEL, untouched: 0, focus: blankFocus() };
+    const prev = focusState(s);
+    if (prev.settled === iso) {
+      next[room.id] = { level: s.level, untouched: s.untouched || 0, focus: prev };
+      continue;
     }
-    next[room.id] = { level, untouched };
+    let level = s.level ?? START_LEVEL;
+    let { tended, open, dropped } = prev;
+    if (prev.week !== week) {
+      tended = false;
+      open = false;
+    }
+    const focus = focusRoomIds(wd).includes(room.id);
+    const cleaned = isTouched(room.id, checks, wd);
+    if (cleaned) {
+      level = Math.min(MAX_LEVEL, level + 1);
+      tended = true;
+    } else if (focus && !fadePaused) {
+      open = true;
+    }
+    const last = lastFocusWeekday(room.id) === wd;
+    if (focus && last && !tended && open && dropped !== week) {
+      if (level > 0) {
+        level -= 1;
+        events.push({ type: 'dim', roomId: room.id, to: level });
+      }
+      dropped = week;
+    }
+    next[room.id] = {
+      level,
+      untouched: s.untouched || 0,
+      focus: { week, tended, open, dropped, settled: iso },
+    };
   }
   return { rooms: next, events };
 }
 
 /**
  * Apply every finished day after roomsSettledThrough, up through the day
- * before `today`. Today stays live. Days with no saved record are untouched,
- * except Sundays, which pause.
+ * before `today`. Today stays live, so a focus clean can still be unticked.
+ * A paused day (Sunday, sick, hyperfocus, bad day) is not a missed focus day.
  */
 export function catchUpRooms(state, today) {
   if (!state.rooms) state.rooms = initialRooms();
@@ -162,7 +198,7 @@ export function catchUpRooms(state, today) {
   let cursor = dateShift(state.roomsSettledThrough, 1);
   while (cursor < today) {
     const day = state.days?.[cursor] || {};
-    const result = settleDay(state.rooms, day.checks || {}, weekday(cursor), isFadePaused(state, cursor));
+    const result = settleDay(state.rooms, day.checks || {}, cursor, isFadePaused(state, cursor));
     state.rooms = result.rooms;
     if (result.events.length) log.push({ date: cursor, events: result.events });
     cursor = dateShift(cursor, 1);

@@ -1,5 +1,5 @@
 /* Home Base service worker. Bump VERSION when shipping a new app shell. */
-const VERSION = '1';
+const VERSION = '2';
 const CACHE = 'home-base-' + VERSION;
 const ASSETS = [
   './',
@@ -23,6 +23,7 @@ const ASSETS = [
   './js/rooms.js',
   './js/days.js',
   './js/xp.js',
+  './js/witchy.js',
   './js/dates.js',
   './js/v2-data.js',
   './icons/icon-192.png',

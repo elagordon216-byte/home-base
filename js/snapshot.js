@@ -4,6 +4,7 @@ import { clone } from './dates.js';
 import { autoDayType, dayTypeOf } from './days.js';
 import { PHASE_NAMES, phaseOfDay } from './moon.js';
 import { priorityName } from './labels.js';
+import { carriedOn } from './witchy.js';
 
 export function labelForKey(state, key, day) {
   let m;
@@ -62,8 +63,8 @@ export function snapshotFor(state, iso, finalized = false, now = new Date().toIS
     authorCount: Object.keys(c).filter(k => c[k] && authorIds.has(k)).length,
     focusMinutes: Math.floor((d.focusMs || 0) / 60000),
     witchyCount: Object.values(w.checks || {}).filter(Boolean).length,
-    lunarCount: Object.values(w.lunarChecks || {}).filter(Boolean).length,
-    sabbatCount: Object.values(w.sabbatChecks || {}).filter(Boolean).length,
+    lunarCount: Object.keys(carriedOn(state, iso, 'lunar')).length,
+    sabbatCount: Object.keys(carriedOn(state, iso, 'sabbat')).length,
     moonPhase: PHASE_NAMES[phaseOfDay(d, iso)],
     notes,
     witchyNotes: w.astro || '',

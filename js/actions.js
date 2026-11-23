@@ -11,6 +11,7 @@ import { syncBadges } from './badges.js';
 import { snapshotFor } from './snapshot.js';
 import { blankDay } from './defaults.js';
 import { priorityProject, tpl } from './labels.js';
+import { clearSpanKey, spanChecked } from './witchy.js';
 
 export function ensureDay(state, date) {
   if (!state.days[date]) state.days[date] = blankDay();
@@ -180,6 +181,20 @@ export function toggleWitch(state, date, field, itemKey, goldKey, desc, checked)
     gold -= reverseGold(state, date, goldKey, desc);
   }
   return { xp: 0, gold };
+}
+
+/**
+ * Lunar / Sabbat mark (D35). Stays checked across days in the same stretch.
+ * Checking again while it is already on pays nothing. Unchecking takes back
+ * gold only when that gold was awarded today, same as every other untick.
+ */
+export function toggleSpan(state, date, kind, itemKey, checked) {
+  const field = kind === 'lunar' ? 'lunarChecks' : 'sabbatChecks';
+  const goldKey = (kind === 'lunar' ? 'lunar:' : 'sabbat:') + itemKey;
+  const desc = kind === 'lunar' ? 'Lunar task' : 'Sabbat task';
+  if (checked && spanChecked(state, date, kind, itemKey)) return { xp: 0, gold: 0 };
+  if (!checked) clearSpanKey(state, date, kind, itemKey);
+  return toggleWitch(state, date, field, itemKey, goldKey, desc, checked);
 }
 
 export function setDayType(state, date, type) {
