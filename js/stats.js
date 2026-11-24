@@ -36,6 +36,7 @@ export function bucketFor(state, entry) {
     if (HEARTH_TASKS.has(id)) return 'hearth';
     const group = findGroup(state, id);
     if (group === 'author') return 'craft';
+    if (group === 'self') return 'spirit';
     if (group) return 'hearth';
     return null;
   }

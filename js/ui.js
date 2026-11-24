@@ -9,8 +9,9 @@ import {
   clearToday, clockIn, ensureDay, manualBadDay, manualStreak, openMystery, quickWin,
   refresh, setDayType, setEnergy, setItemWords, setProjectWords, markQuest,
   timerPause, timerStop, timerTick, toggleBasket, toggleCustom, toggleEssential,
-  toggleListed, toggleMorningNovel, toggleTodo, toggleWitch,
+  toggleListed, toggleMorningNovel, toggleSpan, toggleTodo, toggleWitch,
 } from './actions.js';
+import { spanChecked } from './witchy.js';
 import { addCustomQuest, pickQuest } from './quests.js';
 import { snapshotFor } from './snapshot.js';
 
@@ -587,11 +588,9 @@ function doCheck(kind, id, date) {
     const w = day.witchy || {};
     result = toggleWitch(state, date, 'checks', id, 'witch:' + id, 'Witchy practice', !w.checks?.[id]);
   } else if (kind === 'lunar') {
-    const w = day.witchy || {};
-    result = toggleWitch(state, date, 'lunarChecks', id, 'lunar:' + id, 'Lunar task', !w.lunarChecks?.[id]);
+    result = toggleSpan(state, date, 'lunar', id, !spanChecked(state, date, 'lunar', id));
   } else if (kind === 'sabbat') {
-    const w = day.witchy || {};
-    result = toggleWitch(state, date, 'sabbatChecks', id, 'sabbat:' + id, 'Sabbat task', !w.sabbatChecks?.[id]);
+    result = toggleSpan(state, date, 'sabbat', id, !spanChecked(state, date, 'sabbat', id));
   } else if (kind === 'focus') {
     if (day.checks['focus:weekly-cleaning']) delete day.checks['focus:weekly-cleaning'];
     else day.checks['focus:weekly-cleaning'] = true;

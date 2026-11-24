@@ -54,6 +54,19 @@ test('Now card shows the next three tasks, with no morning-novel nudge on Tuesda
   const school = nowCard(state, { iso: THU, minutes: 9 * 60 });
   assert.equal(school.blockId, 'preschool');
   assert.deepEqual(school.tasks.map(t => t.id), ['h-main-clean', 'l-washer', 'l-dryer']);
+
+  const done = {
+    'task:morning-novel': true,
+    'task:m-dressed': true,
+    'task:m-kids': true,
+    'task:m-breakfast': true,
+    'task:m-preschool': true,
+  };
+  state.days[THU] = { checks: done, notes: {}, custom: [] };
+  const groom = nowCard(state, { iso: THU, minutes: 7 * 60 });
+  assert.deepEqual(groom.tasks.map(t => t.id), ['s-shower', 's-teeth', 's-hair']);
+  assert.equal(groom.tasks[0].xp, 1);
+  assert.equal(groom.tasks[0].label, 'Shower');
 });
 
 test('Sick Day and Hyperfocus Now cards are the four essentials', () => {

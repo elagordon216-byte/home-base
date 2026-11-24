@@ -44,6 +44,7 @@ export function normalize3(raw, today) {
   if (!n.ui.collapsed || typeof n.ui.collapsed !== 'object') n.ui.collapsed = {};
   if (!n.lists || typeof n.lists !== 'object' || Array.isArray(n.lists)) n.lists = defaultLists();
   for (const g of LIST_GROUPS) if (!Array.isArray(n.lists[g])) n.lists[g] = defaultLists()[g];
+  ensureBuiltInTasks(n.lists);
   for (const d of Object.values(n.days)) {
     if (!d || typeof d !== 'object') continue;
     if (!d.checks || typeof d.checks !== 'object') d.checks = {};
@@ -68,6 +69,17 @@ export function normalize3(raw, today) {
   n.schema = 3;
   n.app = V3_APP;
   return n;
+}
+
+/** Add checklist rows this version knows about when an older save doesn't have them. Never rewrites a row the save already has, including an archived one. */
+function ensureBuiltInTasks(lists) {
+  for (const g of LIST_GROUPS) {
+    if (!Array.isArray(lists[g])) lists[g] = [];
+    const have = new Set(lists[g].filter(t => t && t.id != null).map(t => String(t.id)));
+    for (const [id, label, xp] of DEFAULT_LISTS[g]) {
+      if (!have.has(id)) lists[g].push({ id, label, xp });
+    }
+  }
 }
 
 function fillWordBaselines(state) {
