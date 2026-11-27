@@ -155,6 +155,24 @@ export function phaseOfDay(day, iso) {
   return moonPhaseFor(iso).phase;
 }
 
+/** The festival itself, when this date falls inside its start and end. Not the weeks leading up to it. */
+export function sabbatOn(iso) {
+  const y = +iso.slice(0, 4);
+  const all = [...sabbatsOfYear(y - 1), ...sabbatsOfYear(y), ...sabbatsOfYear(y + 1)];
+  return all.find(s => iso >= s.start && iso <= s.end) || null;
+}
+
+/**
+ * Sabbat tasks for this day. A sabbat chosen on the day counts, and so does a festival date.
+ * The next sabbat on the calendar, weeks away, does not.
+ */
+export function activeSabbatKey(day, iso) {
+  const choice = day?.witchy?.sabbatManual ? day.witchy.sabbatChoice : null;
+  if (choice && SABBAT_INFO[choice]) return choice;
+  const on = sabbatOn(iso);
+  return on ? on.key : null;
+}
+
 export function sabbatOfDay(day, iso) {
   const w = day?.witchy;
   if (w?.sabbatManual && w.sabbatChoice) return w.sabbatChoice;

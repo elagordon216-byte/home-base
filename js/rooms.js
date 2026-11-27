@@ -4,7 +4,7 @@
 // Dusty is the floor. Sparkling is the cap.
 
 import { dateShift, isISO, weekday, weekStart } from './dates.js';
-import { isFadePaused } from './days.js';
+import { dayTypeOf, isFadePaused } from './days.js';
 
 export const ROOMS = [
   { id: 'mine', name: 'My bedroom', icon: '🛏️', fill: '#e7dfeb' },
@@ -126,8 +126,9 @@ export function isTouched(roomId, checks, wd) {
   return focusRoomIds(wd).includes(roomId);
 }
 
-/** +1 when the room is cleaned on its focus day, otherwise 0. Capped by the caller. */
-export function gain(roomId, checks, wd) {
+/** +1 when the room is cleaned on its focus day, otherwise 0. Capped by the caller. A holiday holds the level. */
+export function gain(roomId, checks, wd, holdLevel = false) {
+  if (holdLevel) return 0;
   return isTouched(roomId, checks, wd) ? 1 : 0;
 }
 
@@ -140,9 +141,11 @@ export function liveLevel(rooms, roomId, checks, wd) {
  * End one day. A focus-day clean bakes in +1. On the room’s last focus day
  * of the week, no clean that week drops one level. A paused focus day is not
  * a miss. Sick, hyperfocus, and bad-day pauses still count a clean if one happened.
+ * holdLevel (a Holiday) does not climb and does not count as the week’s clean.
+ * It is also not a miss. An earlier miss in the week still drops on the last focus day.
  * Calling this twice for the same date does not move the level again.
  */
-export function settleDay(rooms, checks, iso, fadePaused) {
+export function settleDay(rooms, checks, iso, fadePaused, holdLevel = false) {
   const wd = weekday(iso);
   const week = weekStart(iso);
   const next = {};
@@ -161,11 +164,11 @@ export function settleDay(rooms, checks, iso, fadePaused) {
       open = false;
     }
     const focus = focusRoomIds(wd).includes(room.id);
-    const cleaned = isTouched(room.id, checks, wd);
+    const cleaned = !holdLevel && isTouched(room.id, checks, wd);
     if (cleaned) {
       level = Math.min(MAX_LEVEL, level + 1);
       tended = true;
-    } else if (focus && !fadePaused) {
+    } else if (focus && !fadePaused && !holdLevel) {
       open = true;
     }
     const last = lastFocusWeekday(room.id) === wd;
@@ -188,7 +191,8 @@ export function settleDay(rooms, checks, iso, fadePaused) {
 /**
  * Apply every finished day after roomsSettledThrough, up through the day
  * before `today`. Today stays live, so a focus clean can still be unticked.
- * A paused day (Sunday, sick, hyperfocus, bad day) is not a missed focus day.
+ * A paused day (Sunday, sick, hyperfocus, holiday, bad day) is not a missed focus day.
+ * A holiday also does not level a room.
  */
 export function catchUpRooms(state, today) {
   if (!state.rooms) state.rooms = initialRooms();
@@ -198,7 +202,8 @@ export function catchUpRooms(state, today) {
   let cursor = dateShift(state.roomsSettledThrough, 1);
   while (cursor < today) {
     const day = state.days?.[cursor] || {};
-    const result = settleDay(state.rooms, day.checks || {}, cursor, isFadePaused(state, cursor));
+    const holdLevel = dayTypeOf(day.notes, cursor) === 'holiday';
+    const result = settleDay(state.rooms, day.checks || {}, cursor, isFadePaused(state, cursor), holdLevel);
     state.rooms = result.rooms;
     if (result.events.length) log.push({ date: cursor, events: result.events });
     cursor = dateShift(cursor, 1);
@@ -211,9 +216,10 @@ export function roomViews(state, iso) {
   const wd = weekday(iso);
   const checks = state.days?.[iso]?.checks || {};
   const paused = isFadePaused(state, iso);
+  const holdLevel = dayTypeOf(state.days?.[iso]?.notes, iso) === 'holiday';
   return ROOMS.map(room => {
     const start = state.rooms?.[room.id] || { level: START_LEVEL, untouched: 0 };
-    const g = gain(room.id, checks, wd);
+    const g = gain(room.id, checks, wd, holdLevel);
     const level = Math.min(MAX_LEVEL, start.level + g);
     return {
       ...room,
@@ -222,7 +228,7 @@ export function roomViews(state, iso) {
       levelNumber: level + 1,
       gain: g,
       untouched: start.untouched || 0,
-      focus: focusRoomIds(wd).includes(room.id),
+      focus: !holdLevel && focusRoomIds(wd).includes(room.id),
       paused,
       sparkling: level === MAX_LEVEL,
     };

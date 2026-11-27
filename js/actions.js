@@ -53,7 +53,7 @@ export function toggleListed(state, date, id, checked) {
     day.checks[key] = true;
     xp += awardXP(state, date, key, task.xp, label, 'task');
     gold += awardGold(state, date, key, goldForTask(group, id), label);
-    if (id === MAIN_CLEAN && focusRoomIds(weekday(date)).length) {
+    if (id === MAIN_CLEAN && dayTypeOf(day.notes, date) !== 'holiday' && focusRoomIds(weekday(date)).length) {
       xp += awardXP(state, date, 'focus-bonus', 1, 'Weekday cleaning focus bonus', 'bonus');
     }
   } else {
@@ -205,7 +205,7 @@ export function setDayType(state, date, type) {
     delete day.notes.kind;
   } else {
     day.notes.dayType = type;
-    const kindMap = { weekday: 'normal', break: 'fallbreak', sick: 'sick', hyperfocus: 'hyperfocus' };
+    const kindMap = { weekday: 'normal', break: 'fallbreak', sick: 'sick', hyperfocus: 'hyperfocus', holiday: 'holiday' };
     day.notes.kind = kindMap[type] || type;
   }
   return syncHyperfocus(state, date);
