@@ -1,4 +1,5 @@
-// Four day types (D31) and the weekday rules that still apply (D4, D27, D32).
+// Five day types (D31) and the weekday rules that still apply (D4, D27, D32).
+// Holiday is chosen by hand. It is never the automatic weekday.
 
 import { weekday } from './dates.js';
 
@@ -7,6 +8,7 @@ export const DAY_TYPES = [
   { id: 'break', name: 'Weekend/Break', short: 'Break', hint: 'Friday–Sunday, plus spring, summer, and fall breaks.' },
   { id: 'sick', name: 'Sick Day', short: 'Sick', hint: 'Low energy or another focus. Four essentials are enough.' },
   { id: 'hyperfocus', name: 'Hyperfocus', short: 'Hyper', hint: 'The day went somewhere else. +10 XP, fading pauses, essentials only.' },
+  { id: 'holiday', name: 'Holiday', short: 'Holiday', hint: 'Bare basics: essentials, self-care, and today’s witchy tasks. No cleaning.' },
 ];
 
 export function autoDayType(iso) {
@@ -24,6 +26,7 @@ export function dayTypeOf(notes, iso) {
     case 'fallbreak': return 'break';
     case 'sick': return 'sick';
     case 'hyperfocus': return 'hyperfocus';
+    case 'holiday': return 'holiday';
     case 'sunday': return 'break';
     case 'tuesday': return 'weekday';
     case 'normal': return 'weekday';
@@ -36,27 +39,32 @@ export function dayTypeName(id) {
   return DAY_TYPES.find(t => t.id === id)?.name || id;
 }
 
+export function isHoliday(notes, iso) {
+  return dayTypeOf(notes, iso) === 'holiday';
+}
+
 /** Essentials checklist is showing. Explicit badDay wins, matching v2. */
 export function essentialsOn(day, iso) {
   if (!day) return false;
   if (day.badDay !== undefined) return !!day.badDay;
   const type = dayTypeOf(day.notes, iso);
-  if (type === 'sick' || type === 'hyperfocus') return true;
+  if (type === 'sick' || type === 'hyperfocus' || type === 'holiday') return true;
   return (day.notes?.energy || 'medium') === 'low';
 }
 
 /**
  * A focus day does not count as missed on this date (D4, D32, D36).
- * Sunday pauses by weekday. Sick Day and Hyperfocus pause even if the full list is open.
+ * Sunday pauses by weekday. Sick Day, Hyperfocus, and Holiday pause even if the full list is open.
  * Low energy and a manual Bad Day toggle also pause, because that is Bad Day mode.
- * A day with no saved record pauses only on Sunday. A clean done on a paused focus day still counts.
+ * A day with no saved record pauses only on Sunday. A clean on a paused Sick Day or Hyperfocus still counts.
+ * A Holiday pauses and also does not level a room (see rooms.js).
  */
 export function isFadePaused(state, iso) {
   if (weekday(iso) === 0) return true;
   const day = state.days?.[iso];
   if (!day) return false;
   const type = dayTypeOf(day.notes, iso);
-  if (type === 'sick' || type === 'hyperfocus') return true;
+  if (type === 'sick' || type === 'hyperfocus' || type === 'holiday') return true;
   return essentialsOn(day, iso);
 }
 
@@ -87,6 +95,7 @@ export function dayNotice(type, energy, iso) {
   if (type === 'break') bits.push('Weekend or break: no preschool run. A slower start is part of the plan.');
   if (type === 'sick') bits.push('Sick day: kids safe, everyone fed, urgent needs only. Cleaning and author work are optional.');
   if (type === 'hyperfocus') bits.push('Hyperfocus day: +10 XP. A focus day missed for this reason doesn’t drop a room. The four essentials are enough, and the full list is still there.');
+  if (type === 'holiday') bits.push('Holiday: bare basics. The four essentials, self-care, and today’s witchy tasks. No cleaning or laundry nudge. Rooms don’t move, and this day doesn’t count as a missed focus day.');
   if (w === 2) bits.push('Tuesday: no writing, unless you tap “Writing anyway.”');
   if (w === 0) bits.push('Sunday: no writing. Sunday isn’t a cleaning focus day.');
   if (energy === 'low') bits.push('Low energy: bare basics are enough.');

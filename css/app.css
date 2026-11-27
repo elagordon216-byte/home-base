@@ -103,6 +103,8 @@ button.small { min-height: 44px; padding: 8px 10px; font-size: .92rem; }
 .seg { display: grid; gap: 6px; }
 .seg.two { grid-template-columns: 1fr 1fr; }
 .seg.three { grid-template-columns: repeat(3, 1fr); }
+.seg.days { grid-template-columns: repeat(auto-fit, minmax(5.75rem, 1fr)); }
+.seg.days button { white-space: normal; line-height: 1.2; padding: 8px 4px; }
 .seg button {
   border: 0;
   border-radius: 12px;

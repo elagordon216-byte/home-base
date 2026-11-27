@@ -99,7 +99,8 @@ function prioritySafe(state) {
 
 /**
  * Next 3 tasks for this time of day.
- * Sick Day, Hyperfocus, and Bad Day mode show the four essentials instead.
+ * Sick Day, Hyperfocus, Holiday, and Bad Day mode show the four essentials instead.
+ * A Holiday stays on that list so the card never nudges cleaning or laundry.
  */
 export function nowCard(state, { iso, minutes }) {
   const day = state.days?.[iso] || { checks: {}, notes: {} };
@@ -108,9 +109,10 @@ export function nowCard(state, { iso, minutes }) {
   const wd = weekday(iso);
   const checks = day.checks || {};
   const essentials = essentialsOn(day, iso);
-  const blockId = essentials ? 'essentials' : blockFor(minutes, { wd, dayType: type });
+  const bare = type === 'holiday' || essentials;
+  const blockId = bare ? 'essentials' : blockFor(minutes, { wd, dayType: type });
   const meta = BLOCK_META[blockId];
-  const ids = essentials
+  const ids = bare
     ? BADDAY_ITEMS.map(([id]) => id)
     : poolFor(blockId, { wd, dayType: type, notes, iso, writing: !noWriting(day, iso) });
   const tasks = ids.map(id => {
@@ -122,8 +124,9 @@ export function nowCard(state, { iso, minutes }) {
   let note = '';
   if (blockId === 'weekend-day') note = 'Daytime block is a placeholder (7:50 AM–5:00 PM) until you confirm weekend hours.';
   if (blockId === 'author' && noWriting(day, iso)) note = 'No writing tonight. Rest counts.';
-  if (essentials && type === 'hyperfocus') note = 'Hyperfocus: just the essentials. The rest of the list is still there.';
-  if (essentials && type === 'sick') note = 'Sick day: just the essentials. Survival counts.';
+  if (type === 'holiday') note = 'Holiday: just the essentials. No cleaning or laundry nudge. The full list is still there.';
+  else if (essentials && type === 'hyperfocus') note = 'Hyperfocus: just the essentials. The rest of the list is still there.';
+  else if (essentials && type === 'sick') note = 'Sick day: just the essentials. Survival counts.';
   if (!essentials && morningNovelOptional(iso) && blockId === 'morning') note = 'Morning novel is optional today. No nudge if you skip it.';
   return {
     blockId,
